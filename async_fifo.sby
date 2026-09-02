@@ -1,0 +1,15 @@
+[options]
+mode prove
+depth 20
+
+[engines]
+smtbmc z3
+
+[script]
+read_verilog -formal -sv async_fifo.sv
+read_verilog -formal -sv async_fifo_formal.sv
+prep -top async_fifo_formal
+
+[files]
+async_fifo.sv
+async_fifo_formal.sv

@@ -5,10 +5,32 @@ The verification flow uses **Yosys, SymbiYosys, and Z3** for formal verification
 
 ---
 
+## Quick Start
+
+Run lint, simulation, and formal verification in one go:
+
+```bash
+verilator --lint-only --timing async_fifo.sv async_tb.sv --top-module async_tb && \
+verilator --binary --timing --trace async_fifo.sv async_tb.sv --top-module async_tb && \
+./obj_dir/Vasync_tb && \
+rm -rf async_fifo && \
+sby -f async_fifo.sby
+```
+
+This chain will:
+
+1. Lint the RTL and testbench (`--lint-only`).
+2. Build the simulation binary with waveform tracing (`--trace`).
+3. Run the simulation, generating `async_fifo.vcd`.
+4. Clear any previous formal proof output directory.
+5. Run the formal proof with SymbiYosys.
+
+---
+
 ## 1. Project Structure
 
 ```text
-async_fifo/
+Formal_Verification_Async_FIFO/
 ├── async_fifo.sv
 ├── async_fifo_formal.sv
 ├── async_fifo.sby

@@ -18,63 +18,33 @@ module async_fifo #(
     output logic [DATAWIDTH-1:0] rd_data
 );
 
-    // ------------------------------------------------------------
-    // Parameters
-    // ------------------------------------------------------------
-
     localparam integer ADDR_WIDTH = $clog2(DEPTH);
     localparam integer PTR_WIDTH  = ADDR_WIDTH;
 
-    // This implementation uses standard Gray-pointer full
-    // detection and therefore requires a power-of-two DEPTH.
     initial begin
         if (DEPTH < 2 || (DEPTH & (DEPTH - 1)) != 0)
             $error("DEPTH must be a power of 2 and >= 2");
     end
 
-    // ------------------------------------------------------------
-    // Memory
-    // ------------------------------------------------------------
-
     logic [DATAWIDTH-1:0] mem [0:DEPTH-1];
-
-    // ------------------------------------------------------------
-    // Binary pointers
-    // Extra MSB is used to distinguish full from empty.
-    // ------------------------------------------------------------
 
     logic [PTR_WIDTH:0] wr_ptr_bin;
     logic [PTR_WIDTH:0] rd_ptr_bin;
-
     logic [PTR_WIDTH:0] wr_ptr_bin_next;
     logic [PTR_WIDTH:0] rd_ptr_bin_next;
 
-    // ------------------------------------------------------------
-    // Gray pointers
-    // ------------------------------------------------------------
-
     logic [PTR_WIDTH:0] wr_ptr_gray;
     logic [PTR_WIDTH:0] rd_ptr_gray;
-
     logic [PTR_WIDTH:0] wr_ptr_gray_next;
     logic [PTR_WIDTH:0] rd_ptr_gray_next;
 
-    // ------------------------------------------------------------
-    // Synchronizers
-    // ------------------------------------------------------------
-
     logic [PTR_WIDTH:0] rd_ptr_gray_sync1;
     logic [PTR_WIDTH:0] rd_ptr_gray_sync2;
-
     logic [PTR_WIDTH:0] wr_ptr_gray_sync1;
     logic [PTR_WIDTH:0] wr_ptr_gray_sync2;
 
-    // ------------------------------------------------------------
-    // Next write pointer
-    //
-    // With the current interface, a write occurs on every
-    // write-clock edge while the FIFO is not full.
-    // ------------------------------------------------------------
+
+    // WRITE POINTER NEXT
 
     always_comb begin
         if (!full)
@@ -83,18 +53,13 @@ module async_fifo #(
             wr_ptr_bin_next = wr_ptr_bin;
     end
 
-    // Binary -> Gray
     always_comb begin
         wr_ptr_gray_next =
             (wr_ptr_bin_next >> 1) ^ wr_ptr_bin_next;
     end
 
-    // ------------------------------------------------------------
-    // Next read pointer
-    //
-    // A read occurs on every read-clock edge while the FIFO
-    // is not empty.
-    // ------------------------------------------------------------
+
+    // READ POINTER NEXT
 
     always_comb begin
         if (!empty)
@@ -103,15 +68,13 @@ module async_fifo #(
             rd_ptr_bin_next = rd_ptr_bin;
     end
 
-    // Binary -> Gray
     always_comb begin
         rd_ptr_gray_next =
             (rd_ptr_bin_next >> 1) ^ rd_ptr_bin_next;
     end
 
-    // ------------------------------------------------------------
-    // Write pointer
-    // ------------------------------------------------------------
+
+    // WRITE POINTER
 
     always_ff @(posedge wr_clk or posedge wr_rst) begin
         if (wr_rst) begin
@@ -124,9 +87,8 @@ module async_fifo #(
         end
     end
 
-    // ------------------------------------------------------------
-    // Read pointer
-    // ------------------------------------------------------------
+
+    // READ POINTER
 
     always_ff @(posedge rd_clk or posedge rd_rst) begin
         if (rd_rst) begin
@@ -139,18 +101,16 @@ module async_fifo #(
         end
     end
 
-    // ------------------------------------------------------------
-    // Dual-clock memory write
-    // ------------------------------------------------------------
+
+    // MEMORY WRITE
 
     always_ff @(posedge wr_clk) begin
         if (!wr_rst && !full)
             mem[wr_ptr_bin[ADDR_WIDTH-1:0]] <= wr_data;
     end
 
-    // ------------------------------------------------------------
-    // Dual-clock memory read
-    // ------------------------------------------------------------
+
+    // MEMORY READ
 
     always_ff @(posedge rd_clk or posedge rd_rst) begin
         if (rd_rst)
@@ -159,9 +119,9 @@ module async_fifo #(
             rd_data <= mem[rd_ptr_bin[ADDR_WIDTH-1:0]];
     end
 
-    // ------------------------------------------------------------
-    // Read pointer synchronization into write clock domain
-    // ------------------------------------------------------------
+
+    // READ POINTER SYNCHRONIZER
+    // read domain -> write domain
 
     always_ff @(posedge wr_clk or posedge wr_rst) begin
         if (wr_rst) begin
@@ -174,9 +134,9 @@ module async_fifo #(
         end
     end
 
-    // ------------------------------------------------------------
-    // Write pointer synchronization into read clock domain
-    // ------------------------------------------------------------
+
+    // WRITE POINTER SYNCHRONIZER
+    // write domain -> read domain
 
     always_ff @(posedge rd_clk or posedge rd_rst) begin
         if (rd_rst) begin
@@ -189,9 +149,8 @@ module async_fifo #(
         end
     end
 
-    // ------------------------------------------------------------
-    // EMPTY generation
-    // ------------------------------------------------------------
+
+    // EMPTY FLAG
 
     always_ff @(posedge rd_clk or posedge rd_rst) begin
         if (rd_rst)
@@ -200,19 +159,13 @@ module async_fifo #(
             empty <= (rd_ptr_gray_next == wr_ptr_gray_sync2);
     end
 
-    // ------------------------------------------------------------
-    // FULL generation
-    //
-    // Full condition for a Gray-coded asynchronous FIFO:
-    // compare the next write pointer against the synchronized
-    // read pointer with the two MSBs inverted.
-    // ------------------------------------------------------------
+
+    // FULL FLAG
 
     always_ff @(posedge wr_clk or posedge wr_rst) begin
-        if (wr_rst) begin
+        if (wr_rst)
             full <= 1'b0;
-        end
-        else begin
+        else
             full <= (
                 wr_ptr_gray_next ==
                 {
@@ -220,7 +173,6 @@ module async_fifo #(
                      rd_ptr_gray_sync2[PTR_WIDTH-2:0]
                 }
             );
-        end
     end
 
 endmodule
